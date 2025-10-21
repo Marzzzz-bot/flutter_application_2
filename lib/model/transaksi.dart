@@ -4,6 +4,7 @@ class Transaksi {
   final String jenis; // "masuk" atau "keluar"
   final int jumlah;
   final DateTime tanggal;
+  final String? supplierId;
 
   Transaksi({
     required this.id,
@@ -11,6 +12,7 @@ class Transaksi {
     required this.jenis,
     required this.jumlah,
     required this.tanggal,
+    this.supplierId,
   });
 
   // Dari JSON ke Transaksi
@@ -21,6 +23,7 @@ class Transaksi {
       jenis: json['jenis'],
       jumlah: json['jumlah'],
       tanggal: DateTime.parse(json['tanggal']),
+      supplierId: json['supplierId'],
     );
   }
 
@@ -32,6 +35,7 @@ class Transaksi {
       'jenis': jenis,
       'jumlah': jumlah,
       'tanggal': tanggal.toIso8601String(),
+      'supplierId': supplierId,
     };
   }
 }

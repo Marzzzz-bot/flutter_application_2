@@ -1,10 +1,11 @@
-import 'dart:ui';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_application_2/barangkeluar.dart';
 import 'package:flutter_application_2/barangmasuk.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'barangpage.dart';
 import 'login.dart';
@@ -13,6 +14,8 @@ import 'model/supplier.dart';
 import 'model/transaksi.dart';
 import 'model/user.dart';
 import 'supplier_page.dart' as supplier_page;
+import 'transaksi_page.dart';
+import 'widgets/animated_background.dart';
 
 class MyHomePage extends StatefulWidget {
   final String title;
@@ -27,7 +30,7 @@ class MyHomePage extends StatefulWidget {
   });
 
   @override
-  _MyHomePageState createState() => _MyHomePageState();
+  State<MyHomePage> createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
@@ -89,6 +92,57 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  // Add a transaction with optional supplierId
+  void _addTransaksi({
+    required String barangId,
+    required String jenis,
+    required int jumlah,
+    String? supplierId,
+  }) {
+    setState(() {
+      transaksiList.add(
+        Transaksi(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          barangId: barangId,
+          jenis: jenis,
+          jumlah: jumlah,
+          tanggal: DateTime.now(),
+          supplierId: supplierId,
+        ),
+      );
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _saveData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonList = barangList.map((b) => b.toJson()).toList();
+    await prefs.setString('barangList', jsonEncode(jsonList));
+  }
+
+  Future<void> _loadData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString('barangList');
+    if (data != null) {
+      try {
+        final List<dynamic> decoded = jsonDecode(data);
+        if (!mounted) return;
+        setState(() {
+          barangList = decoded
+              .map((e) => Barang.fromJson(Map<String, dynamic>.from(e)))
+              .toList();
+        });
+      } catch (e) {
+        // If parse fails, keep the default list
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -121,26 +175,8 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
       body: Stack(
         children: [
-          // Background gradient + blur
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Color(0xFFB2EBF2),
-                  Color(0xFF80DEEA),
-                  Color(0xFF4DD0E1),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: Container(color: Colors.transparent),
-            ),
-          ),
+          // Animated interactive background
+          const Positioned.fill(child: AnimatedBackground()),
           // Konten utama
           LayoutBuilder(
             builder: (context, constraints) {
@@ -168,11 +204,13 @@ class _MyHomePageState extends State<MyHomePage> {
                       padding: const EdgeInsets.all(18),
                       margin: const EdgeInsets.only(bottom: 18),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.7),
+                        color: Colors.white.withAlpha((0.7 * 255).round()),
                         borderRadius: BorderRadius.circular(18),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.blue.shade100.withOpacity(0.3),
+                            color: Colors.blue.shade100.withAlpha(
+                              (0.3 * 255).round(),
+                            ),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
@@ -296,6 +334,22 @@ class _MyHomePageState extends State<MyHomePage> {
                                         MaterialPageRoute(
                                           builder: (context) => BarangPage(
                                             barangList: barangList,
+                                            onSave: _saveData,
+                                            supplierList: supplierList,
+                                            onAddTransaksi:
+                                                ({
+                                                  required String barangId,
+                                                  required String jenis,
+                                                  required int jumlah,
+                                                  String? supplierId,
+                                                }) {
+                                                  _addTransaksi(
+                                                    barangId: barangId,
+                                                    jenis: jenis,
+                                                    jumlah: jumlah,
+                                                    supplierId: supplierId,
+                                                  );
+                                                },
                                           ),
                                         ),
                                       );
@@ -339,6 +393,17 @@ class _MyHomePageState extends State<MyHomePage> {
                                     Icons.bar_chart,
                                     'Laporan',
                                     Colors.purple,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => TransaksiPage(
+                                            transaksiList: transaksiList,
+                                            supplierList: supplierList,
+                                          ),
+                                        ),
+                                      );
+                                    },
                                   ),
                                 ),
                               ),
@@ -373,16 +438,32 @@ class _MyHomePageState extends State<MyHomePage> {
 
                     const SizedBox(height: 28),
 
-                    // Aktivitas Terbaru
-                    Text(
-                      "Aktivitas Terbaru",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.blue.shade700,
+                    // Aktivitas Terbaru (with translucent white background)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withAlpha((0.85 * 255).round()),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.shade100.withAlpha(
+                              (0.2 * 255).round(),
+                            ),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        "Aktivitas Terbaru",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.blue.shade700,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 10),
                     ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -410,7 +491,9 @@ class _MyHomePageState extends State<MyHomePage> {
                               ),
                             ),
                             title: Text(
-                              '${transaksi.jenis == 'masuk' ? 'Barang Masuk' : 'Barang Keluar'}',
+                              transaksi.jenis == 'masuk'
+                                  ? 'Barang Masuk'
+                                  : 'Barang Keluar',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                               ),
@@ -481,13 +564,13 @@ class _MyHomePageState extends State<MyHomePage> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
           gradient: LinearGradient(
-            colors: [color.withOpacity(0.7), color],
+            colors: [color.withAlpha((0.7 * 255).round()), color],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.25),
+              color: color.withAlpha((0.25 * 255).round()),
               blurRadius: 12,
               offset: const Offset(0, 6),
             ),
