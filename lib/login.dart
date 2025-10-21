@@ -82,7 +82,7 @@ class _LoginPageState extends State<LoginPage> {
                     Image.asset('assets/1213.png', width: 80, height: 80),
                     const SizedBox(height: 20),
                     const Text(
-                      "Login Gudang",
+                      "Login Gudang!",
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
